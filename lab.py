@@ -6,7 +6,7 @@ LISP Interpreter Part 1
 #!/usr/bin/env python3
 
 import sys
-import doctest
+import doctest     
 
 sys.setrecursionlimit(20_000)
 
