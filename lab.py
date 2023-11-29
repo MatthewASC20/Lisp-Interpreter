@@ -166,9 +166,29 @@ def evaluate(tree):
         tree (type varies): a fully parsed expression, as the output from the
                             parse function
     """
-    raise NotImplementedError
-
-
+    def function_call(rest):
+        evaluated_arguments = []
+        for sub_exp in rest:
+            evaluated_arguments.append(eval_helper(sub_exp))
+        return evaluated_arguments
+    def eval_helper(exp):
+        # Base cases
+        if not isinstance(exp, list):
+            if isinstance(exp, (int,float)):
+                return exp
+            elif exp in scheme_builtins:
+                return scheme_builtins[exp]
+            raise SchemeNameError
+        # Tree is a list
+        else:        
+            operator = exp[0]
+            rest = exp[1:] 
+            if operator in scheme_builtins:
+                return scheme_builtins[operator](function_call(rest))
+            else:
+                raise SchemeEvaluationError
+    return eval_helper(tree)
+    
 ########
 # REPL #
 ########
