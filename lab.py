@@ -144,11 +144,31 @@ def parse(tokens):
 ######################
 # Built-in Functions #
 ######################
-
+def mul(args):
+    #multiplies all args together
+    if len(args) == 1:
+        return args[0]
+    else: 
+        running_total = 1
+        for arg in args:
+            running_total *= arg
+        return running_total
+    
+def div(args):
+    # successively divides the first argument by the remaining arguments
+    if len(args) == 1:
+        return args[0]
+    else: 
+        to_divide = args[0]
+        for arg in args[1:]:
+            to_divide /= arg
+        return to_divide
 
 scheme_builtins = {
     "+": sum,
     "-": lambda args: -args[0] if len(args) == 1 else (args[0] - sum(args[1:])),
+    "*": mul,
+    "/": div
 }
 
 
@@ -178,7 +198,7 @@ def evaluate(tree):
                 return exp
             elif exp in scheme_builtins:
                 return scheme_builtins[exp]
-            raise SchemeNameError
+            raise SchemeNameError ("Expression is not a number or a built-in fuction")
         # Tree is a list
         else:        
             operator = exp[0]
@@ -186,9 +206,34 @@ def evaluate(tree):
             if operator in scheme_builtins:
                 return scheme_builtins[operator](function_call(rest))
             else:
-                raise SchemeEvaluationError
+                raise SchemeEvaluationError ("Operator not in built-in functions")
     return eval_helper(tree)
+
+
+class Frame:
+
+    def __init__(self, parent = "global", bindings = None):
+        if not parent == "global":
+            self.parent = parent
+        else:
+            self.parent = global_frame
+        if bindings is None:
+            self.bindings = {}
+        else:
+            self.bindings = bindings
+        
+    def __getitem__ (self, arg):
+        if arg in self.bindings:
+            return self.bindings[arg]
+        elif self.parent is None:
+            raise SchemeNameError("variable not bound")
+        #recursive case
+        return self.parent[arg]
+    def __setitem__ (self, var, value):
+        self.bindings[var] = value
+global_frame = Frame(None, scheme_builtins)
     
+
 ########
 # REPL #
 ########
@@ -323,4 +368,4 @@ if __name__ == "__main__":
     tokens = tokenize(msg)
     print(tokens)
     print(parse(tokens))
-    SchemeREPL(use_frames=False, verbose=False).cmdloop()
+    SchemeREPL(use_frames=False, verbose=True).cmdloop()
