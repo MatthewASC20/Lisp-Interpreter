@@ -172,51 +172,17 @@ scheme_builtins = {
 }
 
 
+
 ##############
 # Evaluation #
 ##############
-
-
-def evaluate(tree):
-    """
-    Evaluate the given syntax tree according to the rules of the Scheme
-    language.
-
-    Arguments:
-        tree (type varies): a fully parsed expression, as the output from the
-                            parse function
-    """
-    def function_call(rest):
-        evaluated_arguments = []
-        for sub_exp in rest:
-            evaluated_arguments.append(eval_helper(sub_exp))
-        return evaluated_arguments
-    def eval_helper(exp):
-        # Base cases
-        if not isinstance(exp, list):
-            if isinstance(exp, (int,float)):
-                return exp
-            elif exp in scheme_builtins:
-                return scheme_builtins[exp]
-            raise SchemeNameError ("Expression is not a number or a built-in fuction")
-        # Tree is a list
-        else:        
-            operator = exp[0]
-            rest = exp[1:] 
-            if operator in scheme_builtins:
-                return scheme_builtins[operator](function_call(rest))
-            else:
-                raise SchemeEvaluationError ("Operator not in built-in functions")
-    return eval_helper(tree)
-
-
 class Frame:
-
+    # Creates a Frame to hold bindings for a function to access
     def __init__(self, parent = "global", bindings = None):
-        if not parent == "global":
-            self.parent = parent
-        else:
+        if parent == "global":
             self.parent = global_frame
+        else:
+            self.parent = parent
         if bindings is None:
             self.bindings = {}
         else:
@@ -226,12 +192,101 @@ class Frame:
         if arg in self.bindings:
             return self.bindings[arg]
         elif self.parent is None:
-            raise SchemeNameError("variable not bound")
+            print("variable not bound:", arg)
+            raise SchemeNameError("variable not bound:", arg)
         #recursive case
         return self.parent[arg]
     def __setitem__ (self, var, value):
         self.bindings[var] = value
 global_frame = Frame(None, scheme_builtins)
+
+def chars_in_string(chars, string):
+    """
+    given a list of chars and a string
+    return a list of bool values True: if char in string
+    """
+    result = []
+    for char in chars:
+        result.append(char in string)
+    return result
+
+def valid_var_name(var_name):
+    """
+    given a variable name check that it is not a num/float
+    and does not cotain "(" or ")"
+    """
+    forbidden = ("(", ")")
+    if isinstance(var_name, (int, float)):
+        return False
+    elif any(chars_in_string(forbidden, var_name)):
+        return False
+    return True
+
+def result_and_frame(tree, frame = None):
+    """
+    returns a tuple with two elements: 
+    the result of the evaluation
+    the frame in which the expression was evaluated
+    """
+    if frame is None: 
+        return(evaluate(tree), Frame()) # Lab says if no frame is given must be brand new frame
+    return (evaluate(tree), Frame(frame))
+
+def evaluate(tree, framing = None):
+    """
+    Evaluate the given syntax tree according to the rules of the Scheme
+    language.
+
+    Arguments:
+        tree (type varies): a fully parsed expression, as the output from the
+                            parse function
+    """
+    if framing is None: 
+        framing = global_frame
+    def function_call(rest, frame):
+        # evaluates each sub_expression for a unknown function
+        evaluated_arguments = []
+        for sub_exp in rest:
+            evaluated_arguments.append(evaluate(sub_exp, frame))
+        return evaluated_arguments
+    
+    def eval_helper(exp, frame):
+        # Base cases
+        if not isinstance(exp, list):
+            if isinstance(exp, (int,float)):
+                return exp
+            elif exp in scheme_builtins:
+                return scheme_builtins[exp]
+            else:   
+                return frame[exp] # check if expression is in frame or parent frames
+        # Tree is a list
+        else: 
+            operator = exp[0]
+            rest = exp[1:] 
+            if operator in scheme_builtins:
+                function_return = function_call(rest, frame)
+                return scheme_builtins[operator](function_return)
+            else:
+                raise SchemeEvaluationError ("Operator not in built-in functions")
+            
+    def define(exp, frame):
+        # handles define keyword to define a variable and it's value
+        if len(exp) == 1:
+            raise SchemeSyntaxError("var to define not given")
+        elif not valid_var_name(exp[1]):
+            raise SchemeSyntaxError("var name not valid")
+        else:
+            frame[exp[1]] = evaluate(exp[2], frame)
+            return frame[exp[1]]
+        
+    if isinstance(tree, list):
+        if tree[0] == "define":
+            return define(tree, framing)
+    return eval_helper(tree, framing)
+
+
+
+
     
 
 ########
@@ -366,6 +421,13 @@ if __name__ == "__main__":
     # run (not when this module is imported)
     msg = "\n\t['bare-name']\n"
     tokens = tokenize(msg)
+    def output(string):
+        tokens = tokenize(string)
+        print(evaluate(parse(tokens)))
     print(tokens)
     print(parse(tokens))
-    SchemeREPL(use_frames=False, verbose=True).cmdloop()
+    output("(define x ( + 3 2))")
+    output("(define x2 (* x x))")
+    
+    SchemeREPL(use_frames=True, verbose=True).cmdloop()
+    
