@@ -304,15 +304,14 @@ def evaluate(tree, frame = None):
     if frame is None: 
         frame = Frame()
     # Base cases
-    if not isinstance(tree, list):
-        if isinstance(tree, (int,float)):
-            return tree
-        elif tree in scheme_builtins:
-            return scheme_builtins[tree] #look at built-in
-        else:   
-            return frame[tree] # check if expression is in frame or parent frames
+    if isinstance(tree, (int,float)):
+        return tree
+    elif isinstance(tree, str):
+        return frame[tree] #look at built-in
+    # else:   
+    #     return frame[tree] # check if expression is in frame or parent frames
     # Tree is a list/ recursion
-    else: 
+    elif isinstance(tree, list): 
         func = tree[0]
         rest = tree[1:] 
         if func == "define":   #defining a var or function
@@ -320,8 +319,7 @@ def evaluate(tree, frame = None):
         elif func == "lambda":
             param = rest[0]
             to_express = rest[1]
-            nameless_func = User_Function(param, to_express, frame)
-            return nameless_func
+            return User_Function(param, to_express, frame)
         elif func in frame: #func is defined somewhere in the frame or parent frames
             function_return = op_call(rest, frame)
             return frame[func](function_return)
@@ -338,6 +336,8 @@ def evaluate(tree, frame = None):
         except:
             print("Function not Found:",func)
             raise SchemeEvaluationError ("Function not Found")
+    raise SchemeEvaluationError ("Function not Found")
+        
 ########
 # REPL #
 ########
