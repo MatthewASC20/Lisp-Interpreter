@@ -6,7 +6,8 @@ LISP Interpreter Part 1
 #!/usr/bin/env python3
 
 import sys
-import doctest     
+import doctest
+from typing import Any     
 
 sys.setrecursionlimit(20_000)
 
@@ -172,7 +173,6 @@ scheme_builtins = {
 }
 
 
-
 ##############
 # Evaluation #
 ##############
@@ -201,7 +201,8 @@ class Frame:
         if arg in self.bindings:
             return self
         elif self.parent is None:
-            return None
+            print("variable not bound:", arg)
+            raise SchemeNameError("variable not bound:", arg)
         #recursive case
         return self.parent.get_frame(arg)
     
@@ -212,6 +213,23 @@ class Frame:
 
 BUILT_IN_FRAME = Frame(None, scheme_builtins)
 
+class User_Function:
+    def __init__(self, parameters, exp, frame):
+        self.parameters = parameters
+        self.exp = exp
+        if frame == None:
+            self.frame = BUILT_IN_FRAME
+        else:
+            self.frame = frame
+    def __call__(self, *args):
+        if len(args) != len(self.parameters):
+            raise SchemeEvaluationError("Incorrect Num of Arguments")
+        bindings = {}
+        for i, arg in enumerate(args):
+            bindings[self.parameters[i]] = arg[0]
+        new_frame = Frame(self.frame, bindings)
+        return evaluate(self.exp, new_frame)
+        
 def chars_in_string(chars, string):
     """
     given a list of chars and a string
@@ -261,6 +279,19 @@ def define(exp, frame):
     else:
         frame[exp[1]] = evaluate(exp[2], frame)
         return frame[exp[1]]
+    
+def user_func(exp, frame):
+    #executed when lamda is called creates new frame and func
+    param = exp[1]
+    to_express = exp[2]
+    nameless_func = User_Function(param, to_express, frame)
+    return nameless_func
+    
+
+keywords = {
+    "define": define,
+    "lambda": user_func
+}
 
 def evaluate(exp, frame = None):
     """
@@ -285,18 +316,35 @@ def evaluate(exp, frame = None):
     else: 
         func = exp[0]
         rest = exp[1:] 
-        func_frame = frame.get_frame(func)
         if func == "define":   #defining a var or function
             return define(exp, frame)
-        elif func_frame is not None:
+        elif func == "lambda":
+            param = rest[0]
+            to_express = rest[1]
+            nameless_func = User_Function(param, to_express, frame)
+            if len(rest) == 3:
+                args = evaluate(rest[2])
+                return nameless_func(args)
+            return nameless_func
+        try:
+            func_frame = frame.get_frame(func)
             function_return = op_call(rest, frame)
             return func_frame[func](function_return)
-        else:
-            raise SchemeEvaluationError ("Operator not in built-in functions")
-
-
-
-    
+        except:
+            print('got here1')
+            try:
+                print('got here2')
+                inline_func = evaluate(exp[0],frame)
+                args = op_call(rest, frame)
+                print(f'{inline_func=}')
+                print(args)
+                inline = inline_func(args)
+                print(f'{inline=}')
+                print('got here3')
+                return inline
+            except:
+                print("Function not Found:",func)
+                raise SchemeEvaluationError ("Function not Found")
 
 ########
 # REPL #
@@ -433,20 +481,15 @@ if __name__ == "__main__":
     test = Frame()
     def output(string):
         tokens = tokenize(string)
-        print(result_and_frame(parse(tokens), test))
+        parsed = parse(tokens)
+        print(result_and_frame(parsed, test))
     # print(tokens)
     # print(parse(tokens))
     # output("(define x ( + 3 2))")
     # output("(define x2 (* x x))")
-    output("(define x 7)")
-    output("(+ x x)")
-    output('x')
-
-    [
-  ['define', 'x', 7],
-  ['+', 'x', 'x'],
-  'x',
-]
+    # output("((lambda (x) (* x x)) 3)")
+    parsed = [['lambda', ['x', 'y', 'z'], ['+', ['*', 'x', 'x'], ['*', 'y', 'y'], ['*', 'z', 'z']]], 7, 8, 9]
+    print(result_and_frame(parsed, test))
     
     SchemeREPL(use_frames=True, verbose=True).cmdloop()
     
