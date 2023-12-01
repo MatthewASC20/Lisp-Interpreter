@@ -197,6 +197,13 @@ class Frame:
         #recursive case
         return self.parent[arg]
     
+    def __contains__ (self, arg):
+        try:
+            self[arg]
+            return True
+        except:
+            return False
+        
     def get_frame(self, arg):
         if arg in self.bindings:
             return self
@@ -222,11 +229,16 @@ class User_Function:
         else:
             self.frame = frame
     def __call__(self, *args):
-        if len(args) != len(self.parameters):
+        num_parameters = len(self.parameters)
+        num_args = len(args)
+        print(f'{args=}')
+        print(f'{num_parameters=}')
+        print(f'{num_args=}')
+        if num_args != num_parameters:
             raise SchemeEvaluationError("Incorrect Num of Arguments")
         bindings = {}
         for i, arg in enumerate(args):
-            bindings[self.parameters[i]] = arg[0]
+            bindings[self.parameters[i]] = arg
         new_frame = Frame(self.frame, bindings)
         return evaluate(self.exp, new_frame)
         
@@ -279,21 +291,8 @@ def define(exp, frame):
     else:
         frame[exp[1]] = evaluate(exp[2], frame)
         return frame[exp[1]]
-    
-def user_func(exp, frame):
-    #executed when lamda is called creates new frame and func
-    param = exp[1]
-    to_express = exp[2]
-    nameless_func = User_Function(param, to_express, frame)
-    return nameless_func
-    
 
-keywords = {
-    "define": define,
-    "lambda": user_func
-}
-
-def evaluate(exp, frame = None):
+def evaluate(tree, frame = None):
     """
     Evaluate the given syntax tree according to the rules of the Scheme
     language.
@@ -305,47 +304,40 @@ def evaluate(exp, frame = None):
     if frame is None: 
         frame = Frame()
     # Base cases
-    if not isinstance(exp, list):
-        if isinstance(exp, (int,float)):
-            return exp
-        elif exp in scheme_builtins:
-            return scheme_builtins[exp] #look at built-in
+    if not isinstance(tree, list):
+        if isinstance(tree, (int,float)):
+            return tree
+        elif tree in scheme_builtins:
+            return scheme_builtins[tree] #look at built-in
         else:   
-            return frame[exp] # check if expression is in frame or parent frames
+            return frame[tree] # check if expression is in frame or parent frames
     # Tree is a list/ recursion
     else: 
-        func = exp[0]
-        rest = exp[1:] 
+        func = tree[0]
+        rest = tree[1:] 
         if func == "define":   #defining a var or function
-            return define(exp, frame)
+            return define(tree, frame)
         elif func == "lambda":
             param = rest[0]
             to_express = rest[1]
             nameless_func = User_Function(param, to_express, frame)
-            if len(rest) == 3:
-                args = evaluate(rest[2])
-                return nameless_func(args)
             return nameless_func
-        try:
-            func_frame = frame.get_frame(func)
+        elif func in frame: #func is defined somewhere in the frame or parent frames
             function_return = op_call(rest, frame)
-            return func_frame[func](function_return)
+            return frame[func](function_return)
+        try:
+            print('got here2')
+            inline_func = evaluate(tree[0],frame)
+            args = op_call(rest, frame)
+            print(f'{inline_func=}')
+            print(args)
+            inline = inline_func(*args)
+            print(f'{inline=}')
+            print('got here3')
+            return inline
         except:
-            print('got here1')
-            try:
-                print('got here2')
-                inline_func = evaluate(exp[0],frame)
-                args = op_call(rest, frame)
-                print(f'{inline_func=}')
-                print(args)
-                inline = inline_func(args)
-                print(f'{inline=}')
-                print('got here3')
-                return inline
-            except:
-                print("Function not Found:",func)
-                raise SchemeEvaluationError ("Function not Found")
-
+            print("Function not Found:",func)
+            raise SchemeEvaluationError ("Function not Found")
 ########
 # REPL #
 ########
